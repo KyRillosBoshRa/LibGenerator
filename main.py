@@ -1,33 +1,46 @@
+from fileinput import close
 import os
 import sys
 import subprocess
 import hilight
+import docx
+from docx.shared import RGBColor
+from html.parser import HTMLParser
 try:
-    import docx
-    from docx.enum.text import WD_ALIGN_PARAGRAPH
-except ImportError:
-    print('Error: you need to install python-docx use \'pip install python-docx\'')
-    exit(0)
+	from pygments import lexers
+	from pygments.formatters import HtmlFormatter
+	from pygments import highlight
+except:
+	print('Error: you need to install pygments use \'pip install pygments\'')
+	exit(0)
 try:
-    import reportlab
-    from reportlab.lib.units import mm
-    from reportlab.pdfgen import canvas
-    from reportlab.lib.pagesizes import A4
-    from reportlab.pdfbase.pdfmetrics import stringWidth
+  import docx
+  from docx.enum.text import WD_ALIGN_PARAGRAPH
 except ImportError:
-    print('Error: you need to install reportlab use \'pip install reportlab\'')
-    exit(0)
+  print('Error: you need to install python-docx use \'pip install python-docx\'')
+  exit(0)
 try:
-    from PyPDF2 import PdfFileWriter, PdfFileReader
+  import reportlab
+  from reportlab.lib.units import mm
+  from reportlab.pdfgen import canvas
+  from reportlab.lib.pagesizes import A4
+  from reportlab.pdfbase.pdfmetrics import stringWidth
 except ImportError:
-    print('Error: you need to install reportlab use \'pip install reportlab\'')
-    exit(0)
+  print('Error: you need to install reportlab use \'pip install reportlab\'')
+  exit(0)
 try:
-    import pdftotext
+  from PyPDF2 import PdfFileWriter, PdfFileReader
 except ImportError:
-    print('''Error: you need to install pdftotext use 'pip install pdftotext' if it didn't 
-  work go to https://github.com/jalan/pdftotext to see how to install it''')
-    exit(0)
+  print('Error: you need to install reportlab use \'pip install reportlab\'')
+  exit(0)
+
+# try:
+#     import pdftotext
+# except ImportError:
+#     print('''Error: you need to install pdftotext use 'pip install pdftotext' if it didn't 
+#   work go to https://github.com/jalan/pdftotext to see how to install it
+#   also Microsoft Visual C++ 14.0 or greater is required''')
+#     exit(0)
 
 wDir = os.getcwd()
 if len(sys.argv) > 1:
@@ -43,12 +56,13 @@ section.bottom_margin = docx.shared.Mm(20)
 section.left_margin = docx.shared.Mm(20)
 section.right_margin = docx.shared.Mm(15)
 pdf = None
-numpdf = None
 
 
 def generate_docx():
     # generates the initial doc file
     for d in os.listdir(wDir):
+        if os.path.isfile(d):
+            continue
         doc.add_heading(d, 0)
         for f in os.listdir(d):
             file = os.path.join(os.path.abspath(wDir), d, f)
@@ -57,16 +71,28 @@ def generate_docx():
 
 
 def convert_to_pdf(x):
-    # converts docx file to pdf
-    try:
-        c = 'lowriter --convert-to pdf '+x+'.docx'
-        cp = subprocess.run([c], shell=True, universal_newlines=True,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        # if len(cp.stderr):
-        #   raise Exception('libre office')
-    except:
-        print('Error: cannot find instance from libre office')
-        exit(0)
+    # convert docx to pdf
+    # x is the file name
+
+    # if you are a linux user try this :D
+    # try:
+    #     c = 'lowriter --convert-to pdf '+x+'.docx'
+    #     cp = subprocess.run([c], shell=True, universal_newlines=True,
+    #                         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    #     # if len(cp.stderr):
+    #     #   raise Exception('libre office')
+    # except:
+    #     print('Error: cannot find instance from libre office')
+    #     exit(0)
+
+
+    from docx2pdf import convert
+    convert(x+".docx")
+
+    # import aspose.words as aw
+    # doc = aw.Document(x+".docx")
+    # doc.save("x.pdf")
+
     os.remove(x+'.docx')
 
 
@@ -78,27 +104,34 @@ def createPagePdf():
         c.drawString((210//2)*mm, (8)*mm, str(i))
         c.showPage()
     c.save()
-    global numpdf
-    numpdf = PdfFileReader(open('num.pdf', 'rb'))
 
 
 def add_pages_num():
     # merge pdf and num pdf
     # to add page numbers
+    npdf = open('num.pdf', 'rb')
+    numpdf = PdfFileReader(npdf)
     pdfWriter = PdfFileWriter()
     for p in range(pdf.getNumPages()):
         a = pdf.getPage(p)
         a.mergePage(numpdf.getPage(p))
         pdfWriter.addPage(a)
-    res = open('l.pdf', 'wb')
+    res = open('z.pdf', 'wb')
     pdfWriter.write(res)
-    os.remove('x.pdf')
+    res.close()
+    npdf.close()
     os.remove('num.pdf')
 
 
 def create_content():
     # create table of content for your document
-    pp = pdftotext.PDF(open('l.pdf', 'rb'))
+    # pp = pdftotext.PDF(open('l.pdf', 'rb'))
+    pdffileobj=open('z.pdf','rb')
+    pdfreader=PdfFileReader(pdffileobj)
+    x=pdfreader.numPages
+    pp = []
+    for i in range(x):
+        pp.append(pdfreader.getPage(i).extractText().replace('\n', ''))
     c = canvas.Canvas('pre.pdf', pagesize=A4)
     pageNum = 0
     width, height = A4
@@ -107,6 +140,8 @@ def create_content():
     sw = stringWidth('Content', 'Helvetica', 20)
     c.drawString(width/2-sw/2, 800, 'Content')
     for d in os.listdir(wDir):
+        if os.path.isfile(d):
+            continue
         if d == 'l.pdf':
             continue
         first = True
@@ -136,19 +171,21 @@ def create_content():
             currH -= 30
     c.showPage()
     c.save()
+    pdffileobj.close()
 
 
 def merge_content():
     # merges pre.pdf(content pdf) with l.pdf(main pdf)
     writer = PdfFileWriter()
-    contnt = PdfFileReader(open('pre.pdf', 'rb'))
+    prepdf = open('pre.pdf', 'rb')
+    contnt = PdfFileReader(prepdf)
     for p in range(contnt.getNumPages()):
         writer.addPage(contnt.getPage(p))
     for p in range(pdf.getNumPages()):
         writer.addPage(pdf.getPage(p))
     res = open('lib.pdf', 'wb')
     writer.write(res)
-    os.remove('l.pdf')
+    prepdf.close()
     os.remove('pre.pdf')
 
 
@@ -184,16 +221,22 @@ def main():
     generate_docx()
     print('done\ncreating pdf.. done')
     convert_to_pdf('x')
-    pdf = PdfFileReader(open('x.pdf', 'rb'))
+    xpdf = open('x.pdf', 'rb')
+    pdf = PdfFileReader(xpdf)
     createPagePdf()
     print('adding pages numbers..', end=' ')
     add_pages_num()
-    pdf = PdfFileReader(open('l.pdf', 'rb'))
+    zpdf = open('z.pdf', 'rb')
+    pdf = PdfFileReader(zpdf)
     print('done\nadding content pages..', end=' ')
     create_content()
     print('done\nmerging content with origenal file..', end=' ')
     merge_content()
     print('done\nyour file is ready now :D')
+    zpdf.close()
+    xpdf.close()
+    os.remove('z.pdf')
+    os.remove('x.pdf')
 
 
 if __name__ == '__main__':
