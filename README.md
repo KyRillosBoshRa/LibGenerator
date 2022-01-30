@@ -1,9 +1,15 @@
 # LibGenerator
-Library Generator script for competitive programmers
+### Library Generator script for competitive programmers
+
+I wrote this script couple years ago for personal use, it is spaghetti code (software engineering wise)
+
+but I think it's finally time to finally share it 
+
+note: don't get me wrong it still spaghetti as it was a couple years ago :D
 
 ## Install requirements:
   
-  first you need to install the requirements.txt file
+  First, you need to install the requirements.txt file
   
   **you can use:**
   > pip install -r /path/to/requirements.txt
@@ -40,3 +46,7 @@ Library Generator script for competitive programmers
    └───Strings
            z_function.cpp
 ```
+
+  ## Video Demo:
+
+![DEMO](https://i.imgur.com/CIzoc6X.gif)
